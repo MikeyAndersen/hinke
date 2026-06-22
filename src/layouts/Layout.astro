@@ -1,0 +1,29 @@
+---
+import { pwaInfo } from 'virtual:pwa-info';
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+}
+
+const { title = 'Hinke Energi — Installationsskema' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="da">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Offline-first felt-app til Hinke Energis varmepumpe-installationsskema." />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
+    <meta name="theme-color" content="#0e7c73" />
+    <title>{title}</title>
+    <!-- Astro injicerer ikke PWA-scriptet automatisk — registreres her. -->
+    <script src="/src/pwa.ts"></script>
+    {pwaInfo && <Fragment set:html={pwaInfo.webManifest.linkTag} />}
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

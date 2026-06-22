@@ -1,0 +1,609 @@
+<!--
+  Hinke Energi — Installationsskema (prototype v0.1)
+  Offline-first felt-app. Gemmer lokalt, synkroniserer til kontoret når der er net.
+  Selvstændigt HTML-dokument: ingen eksterne afhængigheder, virker offline.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hinke Energi — Installationsskema</title>
+<style>
+  :root{
+    --ink:#16201c;
+    --green:#1f7a4d;
+    --green-deep:#13593a;
+    --green-soft:#e8f3ec;
+    --paper:#ffffff;
+    --bg:#eef2ef;
+    --line:#d6ded8;
+    --line-strong:#b9c4bd;
+    --muted:#5d6b63;
+    --amber:#b7791f;
+    --amber-soft:#fbf1dd;
+    --grey:#8a958e;
+    --shadow:0 1px 2px rgba(20,40,30,.06),0 8px 24px rgba(20,40,30,.06);
+    --radius:10px;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:var(--font);
+    color:var(--ink);
+    background:var(--bg);
+    font-size:14px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:40;
+    display:flex;align-items:center;gap:16px;
+    padding:10px 20px;
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(20,40,30,.03);
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.02em}
+  .brand .mark{
+    width:30px;height:30px;border-radius:50%;
+    border:2.5px solid var(--green);
+    display:grid;place-items:center;color:var(--green);font-weight:900;font-size:15px;
+  }
+  .brand .name{font-size:16px;color:var(--ink)}
+  .brand .name b{color:var(--green)}
+  .brand .name span{display:block;font-size:9px;letter-spacing:.42em;color:var(--muted);font-weight:700;margin-top:-2px}
+  .spacer{flex:1}
+
+  .pill{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;
+    border:1px solid var(--line-strong);background:#f6f8f6;color:var(--muted);
+  }
+  .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--grey)}
+  .pill[data-state="local"]{border-color:var(--line-strong);background:#f6f8f6;color:var(--muted)}
+  .pill[data-state="local"] .dot{background:var(--grey)}
+  .pill[data-state="queued"]{border-color:#ecd8ad;background:var(--amber-soft);color:var(--amber)}
+  .pill[data-state="queued"] .dot{background:var(--amber)}
+  .pill[data-state="synced"]{border-color:#bfe0cc;background:var(--green-soft);color:var(--green-deep)}
+  .pill[data-state="synced"] .dot{background:var(--green)}
+
+  .net-toggle{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:600}
+  .switch{position:relative;width:38px;height:22px;border-radius:999px;background:#cdd6cf;cursor:pointer;transition:background .15s;border:none}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .switch.on{background:var(--green)}
+  .switch.on::after{left:18px}
+
+  button.btn{
+    font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;
+    border-radius:8px;padding:8px 14px;border:1px solid var(--line-strong);
+    background:#fff;color:var(--ink);transition:background .12s,border-color .12s;
+  }
+  button.btn:hover{background:#f4f7f5}
+  button.btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+  button.btn.primary:hover{background:var(--green-deep)}
+  button.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+  button.btn.ghost:hover{background:#f0f3f1;color:var(--ink)}
+
+  /* ---------- Layout ---------- */
+  .wrap{max-width:1180px;margin:0 auto;padding:20px}
+  .jobs-meta{display:flex;align-items:center;gap:12px;margin-bottom:14px;color:var(--muted);font-size:12.5px}
+  .jobs-meta b{color:var(--ink)}
+
+  .grid{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;align-items:start}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .col{display:flex;flex-direction:column;gap:16px}
+  .full{grid-column:1 / -1}
+
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .card > h2{
+    margin:0;padding:11px 16px;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--green-deep);background:var(--green-soft);border-bottom:1px solid #d3e7da;
+  }
+  .card .body{padding:14px 16px}
+
+  .field{margin-bottom:12px}
+  .field:last-child{margin-bottom:0}
+  .field > label{display:block;font-size:11.5px;font-weight:700;color:var(--muted);margin-bottom:5px;letter-spacing:.01em}
+  .row{display:grid;gap:12px}
+  .row.c2{grid-template-columns:1fr 1fr}
+  .row.c3{grid-template-columns:1fr 1fr 1fr}
+
+  input[type=text],input[type=tel],input[type=date],input[type=number],select,textarea{
+    width:100%;font-family:inherit;font-size:14px;color:var(--ink);
+    border:1px solid var(--line-strong);border-radius:7px;padding:8px 10px;background:#fff;
+  }
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--green);outline-offset:-1px;border-color:var(--green)}
+  textarea{resize:vertical;min-height:64px}
+  select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%235d6b63' stroke-width='1.6'/></svg>");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+
+  .unit{position:relative}
+  .unit input{padding-right:30px}
+  .unit::after{content:"m";position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px;font-weight:600;pointer-events:none}
+
+  /* segmented control */
+  .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden}
+  .seg button{font-family:inherit;font-size:12.5px;font-weight:600;border:none;background:#fff;color:var(--muted);padding:7px 14px;cursor:pointer;border-right:1px solid var(--line)}
+  .seg button:last-child{border-right:none}
+  .seg button.active{background:var(--green);color:#fff}
+
+  /* checkbox chips */
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid var(--line-strong);border-radius:8px;cursor:pointer;user-select:none;font-size:13px;font-weight:600;color:var(--muted);background:#fff}
+  .chip input{position:absolute;opacity:0;pointer-events:none}
+  .chip .box{width:16px;height:16px;border:1.5px solid var(--line-strong);border-radius:4px;display:grid;place-items:center}
+  .chip .box svg{opacity:0}
+  .chip.checked{border-color:var(--green);color:var(--green-deep);background:var(--green-soft)}
+  .chip.checked .box{background:var(--green);border-color:var(--green)}
+  .chip.checked .box svg{opacity:1}
+
+  /* add-on rows with qty */
+  .addon{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line)}
+  .addon:last-child{border-bottom:none}
+  .addon .label{font-weight:600}
+  .addon .ctl{display:flex;align-items:center;gap:8px}
+  .addon .ctl input[type=number]{width:64px;text-align:center}
+  .addon .ctl input[type=number]:disabled{background:#f1f3f1;color:var(--grey)}
+
+  /* canvas */
+  .sketch{border:1px dashed var(--line-strong);border-radius:8px;background:#fcfdfc;position:relative}
+  .sketch canvas{display:block;width:100%;height:260px;border-radius:8px;cursor:crosshair;touch-action:none}
+  .sketch .hint{position:absolute;inset:0;display:grid;place-items:center;color:var(--grey);font-size:13px;pointer-events:none}
+
+  /* photos */
+  .photos{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  @media(max-width:520px){.photos{grid-template-columns:repeat(2,1fr)}}
+  .photo{position:relative;border:1px dashed var(--line-strong);border-radius:8px;aspect-ratio:4/3;overflow:hidden;background:#fafbfa;cursor:pointer}
+  .photo .ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--grey);font-size:11.5px;font-weight:600;text-align:center;padding:6px}
+  .photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .photo input{display:none}
+  .photo .tag{position:absolute;top:0;left:0;right:0;background:rgba(22,32,28,.62);color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.04em;padding:4px 7px;text-transform:uppercase}
+  .photo .rm{position:absolute;bottom:6px;right:6px;background:rgba(22,32,28,.7);color:#fff;border:none;border-radius:6px;font-size:11px;padding:3px 7px;cursor:pointer;display:none}
+  .photo.has img + .ph{display:none}
+  .photo.has .rm{display:block}
+
+  /* toast */
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;transition:all .22s;background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;font-weight:600;z-index:90;box-shadow:0 8px 24px rgba(0,0,0,.25);pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* drawer */
+  .drawer{position:fixed;inset:0;z-index:60;display:none}
+  .drawer.open{display:block}
+  .drawer .scrim{position:absolute;inset:0;background:rgba(20,32,26,.34)}
+  .drawer .panel{position:absolute;top:0;left:0;bottom:0;width:340px;max-width:86vw;background:var(--paper);box-shadow:2px 0 30px rgba(0,0,0,.15);display:flex;flex-direction:column}
+  .drawer .panel h3{margin:0;padding:16px;font-size:14px;border-bottom:1px solid var(--line)}
+  .joblist{flex:1;overflow:auto;padding:8px}
+  .jobitem{padding:11px 12px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+  .jobitem:hover{background:#f3f6f4}
+  .jobitem.active{background:var(--green-soft);border-color:#bfe0cc}
+  .jobitem .t{font-weight:700}
+  .jobitem .s{font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center;margin-top:2px}
+  .mini-dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+
+  .note{font-size:12px;color:var(--muted);background:#f6f8f6;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:14px}
+  .note b{color:var(--ink)}
+
+  /* print */
+  @media print{
+    .topbar,.jobs-meta,.drawer,.toast,.note,.sketch .hint{display:none !important}
+    body{background:#fff}
+    .wrap{max-width:none;padding:0}
+    .card{box-shadow:none;break-inside:avoid;border-color:#999}
+    .grid{gap:8px}
+  }
+</style>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="mark">H</div>
+    <div class="name"><b>HINKE</b> ENERGI<span>INSTALLATIONSSKEMA</span></div>
+  </div>
+  <button class="btn ghost" id="btnJobs">☰ Skemaer</button>
+  <div class="spacer"></div>
+  <div class="net-toggle">Net <button class="switch on" id="netSwitch" aria-label="Skift online/offline"></button></div>
+  <div class="pill" id="syncPill" data-state="local"><span class="dot"></span><span id="syncText">Gemmer lokalt…</span></div>
+  <button class="btn" id="btnNew">Nyt skema</button>
+  <button class="btn" id="btnSync">Synkronisér til kontor</button>
+  <button class="btn primary" id="btnPrint">Eksportér</button>
+</div>
+
+<div class="wrap">
+  <div class="jobs-meta">
+    <span>Kunde: <b id="metaName">—</b></span><span>·</span>
+    <span>Sidst gemt: <b id="metaSaved">—</b></span><span>·</span>
+    <span id="metaId" style="color:var(--grey)"></span>
+  </div>
+
+  <div class="grid">
+    <!-- LEFT COLUMN -->
+    <div class="col">
+      <div class="card">
+        <h2>Kunde</h2>
+        <div class="body">
+          <div class="row c2">
+            <div class="field"><label>Navn</label><input type="text" data-path="kunde.navn" placeholder="Fornavn Efternavn"></div>
+            <div class="field"><label>Telefon</label><input type="tel" data-path="kunde.telefon" placeholder="+45"></div>
+          </div>
+          <div class="field"><label>Adresse</label><input type="text" data-path="kunde.adresse" placeholder="Vej, nr., postnr. by"></div>
+          <div class="row c3">
+            <div class="field"><label>Dato</label><input type="date" data-path="kunde.dato"></div>
+            <div class="field"><label>Inst. tid</label><input type="text" data-path="kunde.instTid" placeholder="fx 1 dag"></div>
+            <div class="field"><label>Placering</label>
+              <div class="seg" data-seg="kunde.placering">
+                <button data-val="inde">Inde</button><button data-val="ude">Ude</button><button data-val="begge">Begge</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Installationsforhold</h2>
+        <div class="body">
+          <div class="field"><label>Fundament</label>
+            <div class="seg" data-seg="forhold.fundament">
+              <button data-val="ude">Ude</button><button data-val="inde">Inde</button>
+            </div>
+          </div>
+          <div class="field"><label>Forberedelse</label>
+            <div class="chips">
+              <label class="chip" data-chip="forhold.fliser"><input type="checkbox"><span class="box"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" fill="none" stroke="#fff" stroke-width="1.8"/></svg></span> Fliser</label>
+              <label class="chip" data-chip="forhold.afdaekning"><input type="checkbox"><span class="box"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" fill="none" stroke="#fff" stroke-width="1.8"/></svg></span> Afdækning</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Planskitse</h2>
+        <div class="body">
+          <div class="row c3">
+            <div class="field unit"><label>Højde</label><input type="number" data-path="planskitse.h" placeholder="0"></div>
+            <div class="field unit"><label>Bredde</label><input type="number" data-path="planskitse.b" placeholder="0"></div>
+            <div class="field unit"><label>Dybde</label><input type="number" data-path="planskitse.d" placeholder="0"></div>
+          </div>
+          <div class="field" style="margin-bottom:8px">
+            <label style="display:flex;justify-content:space-between;align-items:center">Skitse <button class="btn ghost" id="btnClearSketch" style="padding:3px 8px">Ryd</button></label>
+            <div class="sketch"><canvas id="sketch"></canvas><div class="hint" id="sketchHint">Tegn rummets opstilling her</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Billeder</h2>
+        <div class="body">
+          <div class="field"><label>Billeder taget</label>
+            <div class="chips">
+              <label class="chip" data-chip="billeder.taget.instOmraade"><input type="checkbox"><span class="box"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" fill="none" stroke="#fff" stroke-width="1.8"/></svg></span> Inst. område</label>
+              <label class="chip" data-chip="billeder.taget.eltavle"><input type="checkbox"><span class="box"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" fill="none" stroke="#fff" stroke-width="1.8"/></svg></span> Eltavle</label>
+              <label class="chip" data-chip="billeder.taget.planskitse"><input type="checkbox"><span class="box"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" fill="none" stroke="#fff" stroke-width="1.8"/></svg></span> Planskitse</label>
+              <label class="chip" data-chip="billeder.taget.indedel"><input type="checkbox"><span class="box"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" fill="none" stroke="#fff" stroke-width="1.8"/></svg></span> Indedel</label>
+              <label class="chip" data-chip="billeder.taget.udedel"><input type="checkbox"><span class="box"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" fill="none" stroke="#fff" stroke-width="1.8"/></svg></span> Udedel</label>
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:0"><label>Fotos</label>
+            <div class="photos" id="photos"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="col">
+      <div class="card">
+        <h2>Tillæg</h2>
+        <div class="body">
+          <div class="row c2">
+            <div class="field unit"><label>Inde/Ude</label><input type="number" data-path="tillaeg.indeUdeM" placeholder="0"></div>
+            <div class="field unit"><label>Nedgravet rør</label><input type="number" data-path="tillaeg.nedgravetRorM" placeholder="0"></div>
+          </div>
+          <div class="field"><label>Type</label><input type="text" data-path="tillaeg.type" placeholder="Pumpetype / model"></div>
+          <div class="row c2">
+            <div class="field"><label>Radiator</label>
+              <select data-path="tillaeg.radiator"><option value="">—</option><option>S</option><option>M</option><option>L</option><option>XL</option></select>
+            </div>
+            <div class="field unit"><label>Rørforbindelse</label><input type="number" data-path="tillaeg.rorforbindelseM" placeholder="0"></div>
+          </div>
+
+          <div class="field" style="margin-bottom:6px"><label>Komponenter</label></div>
+          <div class="addon">
+            <span class="label">XL Buffer</span>
+            <div class="ctl">
+              <label class="chip" data-chip="tillaeg.xlBuffer.on" style="padding:5px 9px"><input type="checkbox"><span class="box"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" fill="none" stroke="#fff" stroke-width="1.8"/></svg></span></label>
+              <input type="number" data-path="tillaeg.xlBuffer.antal" min="0" placeholder="antal" data-needs="tillaeg.xlBuffer.on">
+            </div>
+          </div>
+          <div class="addon">
+            <span class="label">Cirkulationspumpe</span>
+            <div class="ctl">
+              <label class="chip" data-chip="tillaeg.cirkupumpe.on" style="padding:5px 9px"><input type="checkbox"><span class="box"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" fill="none" stroke="#fff" stroke-width="1.8"/></svg></span></label>
+              <input type="number" data-path="tillaeg.cirkupumpe.antal" min="0" placeholder="antal" data-needs="tillaeg.cirkupumpe.on">
+            </div>
+          </div>
+          <div class="addon">
+            <span class="label">Diamantboring</span>
+            <div class="ctl">
+              <label class="chip" data-chip="tillaeg.diamantboring.on" style="padding:5px 9px"><input type="checkbox"><span class="box"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" fill="none" stroke="#fff" stroke-width="1.8"/></svg></span></label>
+              <input type="number" data-path="tillaeg.diamantboring.antal" min="0" placeholder="antal" data-needs="tillaeg.diamantboring.on">
+            </div>
+          </div>
+
+          <div class="row c2" style="margin-top:14px">
+            <div class="field"><label>Olietank</label>
+              <select data-path="tillaeg.olietank"><option value="">—</option><option>Almindelig</option><option>Nedgravet</option><option>Ingen opg.</option></select>
+            </div>
+            <div class="field"><label>Demontering</label>
+              <select data-path="tillaeg.demontering"><option value="">—</option><option>Standard</option><option>L</option><option>XL</option></select>
+            </div>
+          </div>
+          <div class="field"><label>Service</label>
+            <select data-path="tillaeg.service"><option value="">—</option><option>Basis</option><option>Udvidet</option></select>
+          </div>
+          <div class="field" style="margin-bottom:0"><label>Egne opgaver</label><textarea data-path="tillaeg.egneOpgaver" placeholder="Opgaver montøren selv står for"></textarea></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FULL WIDTH BOTTOM -->
+    <div class="full">
+      <div class="card">
+        <h2>Bemærkninger & el</h2>
+        <div class="body">
+          <div class="field"><label>Bemærkninger</label><textarea data-path="bund.bemaerkninger" placeholder="Fri tekst" style="min-height:80px"></textarea></div>
+          <div class="row c2">
+            <div class="field"><label>El-installation</label><input type="text" data-path="bund.elInstallation" placeholder="Beskrivelse"></div>
+            <div class="field unit"><label>Inde/eltavle</label><input type="number" data-path="bund.indeEltavleM" placeholder="0"></div>
+          </div>
+          <div class="field" style="margin-bottom:0"><label>Ekstra tilkøb</label><textarea data-path="bund.ekstraTilkoeb" placeholder="Ekstra tilkøb aftalt med kunden"></textarea></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Prototype v0.1.</b> Data gemmes automatisk lokalt på enheden og lægges i kø til kontoret når der er net (slå "Net" fra for at se offline-opførslen). Felttyper, dropdown-værdier og fotopladser er udledt af PDF- og Excel-skabelonen — sig til hvis noget skal rettes. "Eksportér" bruger browserens udskriv-til-PDF som midlertidig løsning; den endelige PDF magen til Hinkes skabelon kommer i produktionsversionen.
+  </div>
+</div>
+
+<div class="drawer" id="drawer">
+  <div class="scrim" id="scrim"></div>
+  <div class="panel">
+    <h3>Gemte skemaer</h3>
+    <div class="joblist" id="joblist"></div>
+    <div style="padding:12px;border-top:1px solid var(--line)"><button class="btn primary" id="btnNew2" style="width:100%">Nyt skema</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- storage abstraction (window.storage if present, else in-memory) ----------
+  var mem = {};
+  var hasStore = typeof window.storage !== "undefined" && window.storage;
+  async function sGet(k){ try{ if(hasStore){ var r=await window.storage.get(k); return r?r.value:null; } }catch(e){} return (k in mem)?mem[k]:null; }
+  async function sSet(k,v){ try{ if(hasStore){ await window.storage.set(k,v); return; } }catch(e){} mem[k]=v; }
+  async function sList(p){ try{ if(hasStore){ var r=await window.storage.list(p); return r?r.keys:[]; } }catch(e){} return Object.keys(mem).filter(function(x){return x.indexOf(p)===0;}); }
+
+  var IDX="hinke:index";
+  var KEY=function(id){return "hinke:survey:"+id;};
+
+  // ---------- state ----------
+  function blank(){
+    return {
+      id:"S"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+      createdAt:Date.now(), updatedAt:Date.now(), syncState:"local",
+      kunde:{navn:"",telefon:"",adresse:"",dato:"",instTid:"",placering:""},
+      forhold:{fundament:"",fliser:false,afdaekning:false},
+      planskitse:{h:"",b:"",d:"",tegning:""},
+      billeder:{taget:{instOmraade:false,eltavle:false,planskitse:false,indedel:false,udedel:false},fotos:{}},
+      tillaeg:{indeUdeM:"",nedgravetRorM:"",type:"",radiator:"",rorforbindelseM:"",
+               xlBuffer:{on:false,antal:""},cirkupumpe:{on:false,antal:""},diamantboring:{on:false,antal:""},
+               olietank:"",demontering:"",service:"",egneOpgaver:""},
+      bund:{bemaerkninger:"",elInstallation:"",indeEltavleM:"",ekstraTilkoeb:""}
+    };
+  }
+  var survey=blank();
+  var online=true;
+  var saveTimer=null;
+
+  var PHOTOS=[
+    {k:"instOmraade",label:"Installations område"},
+    {k:"indedel",label:"Indedel"},
+    {k:"udedel",label:"Udedel"},
+    {k:"eltavle",label:"Eltavle"},
+    {k:"andet1",label:"Andet"},
+    {k:"andet2",label:"Andet"}
+  ];
+
+  // ---------- path helpers ----------
+  function getP(obj,path){ return path.split(".").reduce(function(o,k){return o==null?undefined:o[k];},obj); }
+  function setP(obj,path,val){ var ks=path.split("."),last=ks.pop(); var t=ks.reduce(function(o,k){ if(o[k]==null)o[k]={}; return o[k];},obj); t[last]=val; }
+
+  // ---------- DOM ----------
+  var $=function(s,r){return (r||document).querySelector(s);};
+  var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));};
+
+  // ---------- toast ----------
+  var toastTimer=null;
+  function toast(msg){ var t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(function(){t.classList.remove("show");},1900); }
+
+  // ---------- sync pill ----------
+  function fmtTime(ts){ var d=new Date(ts); return ("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2); }
+  function renderPill(){
+    var pill=$("#syncPill"), txt=$("#syncText");
+    pill.setAttribute("data-state",survey.syncState);
+    if(survey.syncState==="synced") txt.textContent="Synkroniseret "+fmtTime(survey.updatedAt);
+    else if(survey.syncState==="queued") txt.textContent="Afventer net (i kø)";
+    else txt.textContent="Gemt lokalt "+fmtTime(survey.updatedAt);
+    $("#metaName").textContent=survey.kunde.navn||"—";
+    $("#metaSaved").textContent=fmtTime(survey.updatedAt);
+    $("#metaId").textContent=survey.id;
+  }
+
+  // ---------- persist ----------
+  async function persist(markDirty){
+    survey.updatedAt=Date.now();
+    if(markDirty && survey.syncState==="synced") survey.syncState="local";
+    await sSet(KEY(survey.id),JSON.stringify(survey));
+    var idxRaw=await sGet(IDX); var idx=idxRaw?JSON.parse(idxRaw):[];
+    if(idx.indexOf(survey.id)<0){ idx.unshift(survey.id); await sSet(IDX,JSON.stringify(idx)); }
+    renderPill();
+  }
+  function scheduleSave(){ clearTimeout(saveTimer); saveTimer=setTimeout(function(){persist(true);},500); }
+
+  // ---------- bind inputs ----------
+  function bindAll(){
+    // text/number/select/textarea via data-path
+    $$("[data-path]").forEach(function(el){
+      if(el.dataset.bound) return; el.dataset.bound="1";
+      var ev=(el.tagName==="SELECT")?"change":"input";
+      el.addEventListener(ev,function(){ setP(survey,el.dataset.path,el.value); scheduleSave(); });
+    });
+    // segmented
+    $$("[data-seg]").forEach(function(seg){
+      if(seg.dataset.bound) return; seg.dataset.bound="1";
+      seg.addEventListener("click",function(e){
+        var b=e.target.closest("button"); if(!b)return;
+        var val=b.dataset.val, cur=getP(survey,seg.dataset.seg);
+        var nv=(cur===val)?"":val; setP(survey,seg.dataset.seg,nv);
+        $$("button",seg).forEach(function(x){x.classList.toggle("active",x.dataset.val===nv);});
+        scheduleSave();
+      });
+    });
+    // chips (checkbox)
+    $$("[data-chip]").forEach(function(chip){
+      if(chip.dataset.bound) return; chip.dataset.bound="1";
+      chip.addEventListener("click",function(e){
+        e.preventDefault();
+        var p=chip.dataset.chip, nv=!getP(survey,p); setP(survey,p,nv);
+        chip.classList.toggle("checked",nv);
+        // enable/disable dependent qty inputs
+        $$("[data-needs='"+p+"']").forEach(function(inp){ inp.disabled=!nv; if(!nv){inp.value="";setP(survey,inp.dataset.path,"");} });
+        scheduleSave();
+      });
+    });
+  }
+
+  // ---------- populate from state ----------
+  function populate(){
+    $$("[data-path]").forEach(function(el){ var v=getP(survey,el.dataset.path); el.value=(v==null?"":v); });
+    $$("[data-seg]").forEach(function(seg){ var v=getP(survey,seg.dataset.seg); $$("button",seg).forEach(function(b){b.classList.toggle("active",b.dataset.val===v);}); });
+    $$("[data-chip]").forEach(function(chip){ var v=!!getP(survey,chip.dataset.chip); chip.classList.toggle("checked",v); });
+    $$("[data-needs]").forEach(function(inp){ var on=!!getP(survey,inp.dataset.needs); inp.disabled=!on; });
+    renderPhotos();
+    loadSketch();
+    renderPill();
+  }
+
+  // ---------- photos ----------
+  function buildPhotos(){
+    var wrap=$("#photos"); wrap.innerHTML="";
+    PHOTOS.forEach(function(p){
+      var d=document.createElement("label");
+      d.className="photo"; d.dataset.k=p.k;
+      d.innerHTML='<span class="tag">'+p.label+'</span>'+
+                  '<div class="ph">📷<span>Tilføj billede</span></div>'+
+                  '<input type="file" accept="image/*" capture="environment">'+
+                  '<button class="rm" type="button">Fjern</button>';
+      var input=$("input",d), rm=$(".rm",d);
+      input.addEventListener("change",function(){ if(input.files&&input.files[0]) handlePhoto(p.k,input.files[0]); });
+      rm.addEventListener("click",function(e){ e.preventDefault();e.stopPropagation(); delete survey.billeder.fotos[p.k]; renderPhotos(); persist(true); });
+      wrap.appendChild(d);
+    });
+  }
+  function handlePhoto(k,file){
+    var reader=new FileReader();
+    reader.onload=function(){
+      var img=new Image();
+      img.onload=function(){
+        var max=1100, sc=Math.min(1,max/Math.max(img.width,img.height));
+        var c=document.createElement("canvas"); c.width=img.width*sc; c.height=img.height*sc;
+        c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+        survey.billeder.fotos[k]=c.toDataURL("image/jpeg",0.7);
+        renderPhotos(); persist(true);
+      };
+      img.src=reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+  function renderPhotos(){
+    $$(".photo").forEach(function(d){
+      var k=d.dataset.k, data=survey.billeder.fotos[k];
+      var old=$("img",d); if(old) old.remove();
+      if(data){ var img=new Image(); img.src=data; d.insertBefore(img,$(".ph",d)); d.classList.add("has"); }
+      else d.classList.remove("has");
+    });
+  }
+
+  // ---------- sketch canvas ----------
+  var ctx,canvas,drawing=false,dirtyCanvas=false;
+  function initSketch(){
+    canvas=$("#sketch");
+    var rect=canvas.getBoundingClientRect();
+    canvas.width=rect.width; canvas.height=260;
+    ctx=canvas.getContext("2d");
+    ctx.lineWidth=2; ctx.lineCap="round"; ctx.lineJoin="round"; ctx.strokeStyle="#16201c";
+    function pos(e){ var r=canvas.getBoundingClientRect(); var t=e.touches?e.touches[0]:e; return {x:t.clientX-r.left,y:t.clientY-r.top}; }
+    function start(e){ e.preventDefault(); drawing=true; var p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); $("#sketchHint").style.display="none"; }
+    function move(e){ if(!drawing)return; e.preventDefault(); var p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); dirtyCanvas=true; }
+    function end(){ if(!drawing)return; drawing=false; survey.planskitse.tegning=canvas.toDataURL("image/png"); scheduleSave(); }
+    canvas.addEventListener("mousedown",start); canvas.addEventListener("mousemove",move); window.addEventListener("mouseup",end);
+    canvas.addEventListener("touchstart",start,{passive:false}); canvas.addEventListener("touchmove",move,{passive:false}); canvas.addEventListener("touchend",end);
+    $("#btnClearSketch").addEventListener("click",function(){ ctx.clearRect(0,0,canvas.width,canvas.height); survey.planskitse.tegning=""; $("#sketchHint").style.display="grid"; persist(true); });
+  }
+  function loadSketch(){
+    if(!ctx)return;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    if(survey.planskitse.tegning){ var img=new Image(); img.onload=function(){ctx.drawImage(img,0,0,canvas.width,canvas.height);}; img.src=survey.planskitse.tegning; $("#sketchHint").style.display="none"; }
+    else $("#sketchHint").style.display="grid";
+  }
+
+  // ---------- sync ----------
+  function setOnline(v){ online=v; $("#netSwitch").classList.toggle("on",v); if(v&&survey.syncState==="queued") doSync(true); }
+  async function doSync(silent){
+    if(!online){ survey.syncState="queued"; await persist(false); if(!silent) toast("Offline — lagt i kø til kontoret"); return; }
+    survey.syncState="synced"; await persist(false); toast("Synkroniseret til kontoret");
+    refreshJoblist();
+  }
+
+  // ---------- job list ----------
+  async function refreshJoblist(){
+    var list=$("#joblist"); list.innerHTML="";
+    var idxRaw=await sGet(IDX); var idx=idxRaw?JSON.parse(idxRaw):[];
+    if(!idx.length){ list.innerHTML='<div style="padding:14px;color:var(--muted);font-size:13px">Ingen skemaer endnu.</div>'; return; }
+    for(var i=0;i<idx.length;i++){
+      var raw=await sGet(KEY(idx[i])); if(!raw)continue; var s=JSON.parse(raw);
+      var color=s.syncState==="synced"?"var(--green)":s.syncState==="queued"?"var(--amber)":"var(--grey)";
+      var stateTxt=s.syncState==="synced"?"Synkroniseret":s.syncState==="queued"?"I kø":"Lokal";
+      var d=document.createElement("div");
+      d.className="jobitem"+(s.id===survey.id?" active":"");
+      d.innerHTML='<div class="t">'+(s.kunde.navn||"(uden navn)")+'</div>'+
+                  '<div class="s"><span class="mini-dot" style="background:'+color+'"></span>'+stateTxt+' · '+(s.kunde.adresse||"ingen adresse")+'</div>';
+      (function(id){ d.addEventListener("click",function(){ loadSurvey(id); closeDrawer(); }); })(s.id);
+      list.appendChild(d);
+    }
+  }
+  async function loadSurvey(id){ var raw=await sGet(KEY(id)); if(!raw)return; survey=JSON.parse(raw); ensureShape(); populate(); toast("Skema indlæst"); }
+  function ensureShape(){ var b=blank(); ["kunde","forhold","planskitse","billeder","tillaeg","bund"].forEach(function(k){ survey[k]=Object.assign({},b[k],survey[k]); }); if(!survey.billeder.fotos)survey.billeder.fotos={}; if(!survey.billeder.taget)survey.billeder.taget=b.billeder.taget; }
+  function newSurvey(){ survey=blank(); populate(); persist(false); refreshJobList=refreshJobList; refreshJoblist(); toast("Nyt skema oprettet"); }
+
+  function openDrawer(){ $("#drawer").classList.add("open"); refreshJoblist(); }
+  function closeDrawer(){ $("#drawer").classList.remove("open"); }
+
+  // ---------- wire top bar ----------
+  $("#netSwitch").addEventListener("click",function(){ setOnline(!online); toast(online?"Online":"Offline — ændringer lægges i kø"); });
+  $("#btnSync").addEventListener("click",function(){ doSync(false); });
+  $("#btnNew").addEventListener("click",newSurvey);
+  $("#btnNew2").addEventListener("click",function(){ newSurvey(); closeDrawer(); });
+  $("#btnJobs").addEventListener("click",openDrawer);
+  $("#scrim").addEventListener("click",closeDrawer);
+  $("#btnPrint").addEventListener("click",function(){ window.print(); });
+
+  // ---------- init ----------
+  bindAll(); buildPhotos(); initSketch(); populate(); persist(false);
+
+})();
+</script>

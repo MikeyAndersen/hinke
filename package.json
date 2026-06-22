@@ -1,0 +1,23 @@
+{
+  "name": "hinke-installationsskema",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "generate-pwa-assets": "pwa-assets-generator"
+  },
+  "dependencies": {
+    "astro": "^5.7.0",
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260621.1",
+    "@vite-pwa/assets-generator": "^1.0.0",
+    "@vite-pwa/astro": "^1.1.0",
+    "typescript": "^5.8.0"
+  }
+}

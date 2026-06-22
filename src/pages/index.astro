@@ -1,0 +1,257 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { PHOTO_SLOTS } from '../scripts/survey';
+
+// SVG-flueben genbrugt i chips.
+const check =
+  '<svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" fill="none" stroke="#fff" stroke-width="1.8"/></svg>';
+---
+
+<Layout>
+  <header class="topbar">
+    <div class="brand">
+      <img class="logo" src="/hinke-logo.webp" alt="Hinke Energi" width="397" height="123" />
+      <span class="brand-sub">Installationsskema</span>
+    </div>
+    <button class="btn ghost" id="btn-jobs" type="button">☰ Skemaer</button>
+    <span class="spacer"></span>
+    <span id="save-pill" class="pill" data-state="draft">
+      <span class="dot"></span><span class="label">Gemmer kladde …</span>
+    </span>
+    <span id="net-pill" class="pill" data-state="online">
+      <span class="dot"></span><span class="label">Online</span>
+    </span>
+    <button class="btn" id="btn-new" type="button">Nyt skema</button>
+    <button class="btn" id="btn-pdf" type="button">Eksportér PDF</button>
+    <button class="btn primary" id="btn-send" type="button">Send til kontor</button>
+  </header>
+
+  <main class="wrap">
+    <div class="jobs-meta">
+      <span>Kunde: <b id="meta-name">—</b></span><span>·</span>
+      <span>Sidst gemt: <b id="meta-saved">—</b></span><span>·</span>
+      <span id="meta-id" class="muted"></span>
+    </div>
+
+    <div class="grid">
+      <!-- VENSTRE KOLONNE -->
+      <div class="col">
+        <section class="card">
+          <h2>Kunde</h2>
+          <div class="body">
+            <div class="row c2">
+              <div class="field"><label>Navn</label><input type="text" data-path="kunde.navn" placeholder="Fornavn Efternavn" /></div>
+              <div class="field"><label>Telefon</label><input type="tel" data-path="kunde.telefon" placeholder="+45" /></div>
+            </div>
+            <div class="field"><label>Adresse</label><input type="text" data-path="kunde.adresse" placeholder="Vej, nr., postnr. by" /></div>
+            <div class="row c3">
+              <div class="field"><label>Dato</label><input type="date" data-path="kunde.dato" /></div>
+              <div class="field"><label>Inst. tid</label><input type="text" data-path="kunde.instTid" placeholder="fx 1 dag" /></div>
+              <div class="field">
+                <label>Placering</label>
+                <div class="seg" data-seg="kunde.placering">
+                  <button data-val="inde">Inde</button><button data-val="ude">Ude</button><button data-val="begge">Begge</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Installationsforhold</h2>
+          <div class="body">
+            <div class="field">
+              <label>Fundament</label>
+              <div class="seg" data-seg="forhold.fundament">
+                <button data-val="ude">Ude</button><button data-val="inde">Inde</button>
+              </div>
+            </div>
+            <div class="field">
+              <label>Forberedelse</label>
+              <div class="chips">
+                <label class="chip" data-chip="forhold.fliser"><input type="checkbox" /><span class="box" set:html={check}></span> Fliser</label>
+                <label class="chip" data-chip="forhold.afdaekning"><input type="checkbox" /><span class="box" set:html={check}></span> Afdækning</label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Planskitse</h2>
+          <div class="body">
+            <div class="row c3">
+              <div class="field unit"><label>Højde</label><input type="number" data-path="planskitse.h" placeholder="0" /></div>
+              <div class="field unit"><label>Bredde</label><input type="number" data-path="planskitse.b" placeholder="0" /></div>
+              <div class="field unit"><label>Dybde</label><input type="number" data-path="planskitse.d" placeholder="0" /></div>
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label class="label-row">
+                <span>Skitse</span>
+                <span class="label-actions">
+                  <button class="btn ghost btn-xs" id="sketch-clear" type="button">Ryd</button>
+                  <button class="btn ghost btn-xs" id="sketch-max" type="button">⤢ Maksimér</button>
+                </span>
+              </label>
+              <div class="sketch">
+                <canvas id="sketch-inline"></canvas>
+                <div class="sketch-hint" id="sketch-hint">Tegn rummets opstilling — eller maksimér for mere plads</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Billeder</h2>
+          <div class="body">
+            <div class="field">
+              <label>Billeder taget</label>
+              <div class="chips">
+                <label class="chip" data-chip="billeder.taget.instOmraade"><input type="checkbox" /><span class="box" set:html={check}></span> Inst. område</label>
+                <label class="chip" data-chip="billeder.taget.eltavle"><input type="checkbox" /><span class="box" set:html={check}></span> Eltavle</label>
+                <label class="chip" data-chip="billeder.taget.planskitse"><input type="checkbox" /><span class="box" set:html={check}></span> Planskitse</label>
+                <label class="chip" data-chip="billeder.taget.indedel"><input type="checkbox" /><span class="box" set:html={check}></span> Indedel</label>
+                <label class="chip" data-chip="billeder.taget.udedel"><input type="checkbox" /><span class="box" set:html={check}></span> Udedel</label>
+              </div>
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label>Fotos</label>
+              <div class="photos">
+                {PHOTO_SLOTS.map((p) => (
+                  <label class="photo" data-slot={p.k}>
+                    <span class="tag">{p.label}</span>
+                    <div class="ph"><span class="ph-icon">📷</span>Tilføj billede</div>
+                    <input type="file" accept="image/*" capture="environment" />
+                    <button class="rm" type="button">Fjern</button>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- HØJRE KOLONNE -->
+      <div class="col">
+        <section class="card">
+          <h2>Tillæg</h2>
+          <div class="body">
+            <div class="row c2">
+              <div class="field unit"><label>Inde/Ude</label><input type="number" data-path="tillaeg.indeUdeM" placeholder="0" /></div>
+              <div class="field unit"><label>Nedgravet rør</label><input type="number" data-path="tillaeg.nedgravetRorM" placeholder="0" /></div>
+            </div>
+            <div class="field"><label>Type</label><input type="text" data-path="tillaeg.type" placeholder="Pumpetype / model" /></div>
+            <div class="row c2">
+              <div class="field">
+                <label>Radiator</label>
+                <select data-path="tillaeg.radiator">
+                  <option value="">—</option><option>S</option><option>M</option><option>L</option><option>XL</option>
+                </select>
+              </div>
+              <div class="field unit"><label>Rørforbindelse</label><input type="number" data-path="tillaeg.rorforbindelseM" placeholder="0" /></div>
+            </div>
+
+            <div class="field" style="margin-bottom:6px"><label>Komponenter</label></div>
+            <div class="addon">
+              <span class="label">XL Buffer</span>
+              <div class="ctl">
+                <label class="chip slim" data-chip="tillaeg.xlBuffer.on"><input type="checkbox" /><span class="box" set:html={check}></span></label>
+                <input type="number" data-path="tillaeg.xlBuffer.antal" min="0" placeholder="antal" data-needs="tillaeg.xlBuffer.on" />
+              </div>
+            </div>
+            <div class="addon">
+              <span class="label">Cirkulationspumpe</span>
+              <div class="ctl">
+                <label class="chip slim" data-chip="tillaeg.cirkupumpe.on"><input type="checkbox" /><span class="box" set:html={check}></span></label>
+                <input type="number" data-path="tillaeg.cirkupumpe.antal" min="0" placeholder="antal" data-needs="tillaeg.cirkupumpe.on" />
+              </div>
+            </div>
+            <div class="addon">
+              <span class="label">Diamantboring</span>
+              <div class="ctl">
+                <label class="chip slim" data-chip="tillaeg.diamantboring.on"><input type="checkbox" /><span class="box" set:html={check}></span></label>
+                <input type="number" data-path="tillaeg.diamantboring.antal" min="0" placeholder="antal" data-needs="tillaeg.diamantboring.on" />
+              </div>
+            </div>
+
+            <div class="row c2" style="margin-top:14px">
+              <div class="field">
+                <label>Olietank</label>
+                <select data-path="tillaeg.olietank">
+                  <option value="">—</option><option>Almindelig</option><option>Nedgravet</option><option>Ingen opg.</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Demontering</label>
+                <select data-path="tillaeg.demontering">
+                  <option value="">—</option><option>Standard</option><option>L</option><option>XL</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label>Service</label>
+              <select data-path="tillaeg.service">
+                <option value="">—</option><option>Basis</option><option>Udvidet</option>
+              </select>
+            </div>
+            <div class="field" style="margin-bottom:0"><label>Egne opgaver</label><textarea data-path="tillaeg.egneOpgaver" placeholder="Opgaver montøren selv står for"></textarea></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- FULD BREDDE -->
+      <div class="full">
+        <section class="card">
+          <h2>Bemærkninger &amp; el</h2>
+          <div class="body">
+            <div class="field"><label>Bemærkninger</label><textarea data-path="bund.bemaerkninger" placeholder="Fri tekst" style="min-height:80px"></textarea></div>
+            <div class="row c2">
+              <div class="field"><label>El-installation</label><input type="text" data-path="bund.elInstallation" placeholder="Beskrivelse" /></div>
+              <div class="field unit"><label>Inde/eltavle</label><input type="number" data-path="bund.indeEltavleM" placeholder="0" /></div>
+            </div>
+            <div class="field" style="margin-bottom:0"><label>Ekstra tilkøb</label><textarea data-path="bund.ekstraTilkoeb" placeholder="Ekstra tilkøb aftalt med kunden"></textarea></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="note">
+      Alle felter, planskitse (med maksimér) og foto-upload gemmes i IndexedDB; flere
+      skemaer via <b>☰ Skemaer</b>. <b>Eksportér PDF</b> danner skemaet, og <b>Send til
+      kontor</b> mailer det via kontoret — uden net lægges det i kø og sendes automatisk
+      når forbindelsen er tilbage. Bemærk: PDF'en bruger et midlertidigt layout indtil
+      Hinkes skabelon-PDF lægges ind som baggrund.
+    </div>
+  </main>
+
+  <!-- Skema-skuffe -->
+  <div class="drawer" id="drawer" aria-hidden="true">
+    <div class="scrim" id="scrim"></div>
+    <div class="panel">
+      <h3>Gemte skemaer</h3>
+      <div class="joblist" id="joblist"></div>
+      <div class="drawer-foot">
+        <button class="btn primary" id="btn-new2" type="button" style="width:100%">Nyt skema</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Maksimeret skitse-felt -->
+  <div class="sketch-overlay" id="sketch-overlay" aria-hidden="true">
+    <div class="sketch-overlay-bar">
+      <span class="so-title">Planskitse</span>
+      <span class="spacer"></span>
+      <button class="btn ghost" id="sketch-o-clear" type="button">Ryd</button>
+      <button class="btn primary" id="sketch-o-done" type="button">Færdig</button>
+    </div>
+    <div class="sketch-overlay-canvas">
+      <canvas id="sketch-big"></canvas>
+      <div class="sketch-hint" id="sketch-big-hint">Tegn her — du har hele skærmen</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    import '../scripts/form.ts';
+  </script>
+</Layout>

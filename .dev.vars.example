@@ -1,0 +1,5 @@
+# Kopiér til .dev.vars (ignoreres af git) for lokal test af /api/send.
+# I produktion sættes disse som Cloudflare Pages environment variables.
+RESEND_API_KEY=re_din_api_noegle
+OFFICE_EMAIL=info@hinke.dk
+FROM_EMAIL=skema@dit-verificerede-domaene.dk

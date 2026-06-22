@@ -1,0 +1,16 @@
+# build output
+dist/
+# generated types
+.astro/
+# dependencies
+node_modules/
+# logs
+npm-debug.log*
+*.log
+# environment variables (secrets sættes i Cloudflare Pages, aldrig i repo)
+.env
+.env.production
+.dev.vars
+.wrangler/
+# macOS / editor
+.DS_Store
