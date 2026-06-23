@@ -25,5 +25,12 @@ const { title = 'Hinke Energi — Installationsskema' } = Astro.props;
   </head>
   <body>
     <slot />
+    <!-- GoatCounter — privatlivsvenlig besøgsstatistik. Loader eksternt og async;
+         fejler stille offline og påvirker ikke offline-brug. -->
+    <script
+      is:inline
+      data-goatcounter="https://nova-tech.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"></script>
   </body>
 </html>
