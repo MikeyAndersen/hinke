@@ -270,86 +270,63 @@ export async function buildPdf(survey: Survey): Promise<Uint8Array> {
     { label: 'Ekstra tilkøb', value: txt(b.ekstraTilkoeb), full: true },
   ]);
 
-  // ---------- side: fotos ----------
-  await drawPhotosPage(doc, survey, font, bold);
+  // ---------- fotos: ét pr. side, så stort som muligt ----------
+  await drawPhotoPages(doc, survey, bold);
 
   return doc.save();
 }
 
-async function drawPhotosPage(
-  doc: PDFDocument,
-  survey: Survey,
-  font: PDFFont,
-  bold: PDFFont,
-): Promise<void> {
-  const page: PDFPage = doc.addPage(A4);
-  const W = page.getWidth();
-  const H = page.getHeight();
-  const contentW = W - 2 * MARGIN;
-  let y = H - MARGIN;
+async function drawPhotoPages(doc: PDFDocument, survey: Survey, bold: PDFFont): Promise<void> {
+  // Ét foto pr. side, så stort som muligt (contain inden for margenerne). Tomme
+  // slots springes over, så der ikke kommer blanke sider. Brede billeder lægges
+  // på en liggende A4 så de fylder mest muligt.
+  for (const slot of PHOTO_SLOTS) {
+    const data = survey.billeder.fotos[slot.k];
+    if (!data) continue;
 
-  page.drawText('FOTOS', { x: MARGIN, y: y - 16, size: 15, font: bold, color: tealDeep });
-  y -= 24;
-  page.drawLine({ start: { x: MARGIN, y }, end: { x: W - MARGIN, y }, thickness: 1.2, color: teal });
-  y -= 18;
+    let img;
+    try {
+      const bytes = await dataUrlToBytes(data);
+      img = data.startsWith('data:image/png')
+        ? await doc.embedPng(bytes)
+        : await doc.embedJpg(bytes);
+    } catch {
+      continue; // ulæseligt foto — spring over
+    }
 
-  const gap = 14;
-  const cellW = (contentW - gap) / 2;
-  const cellH = (cellW * 3) / 4;
-
-  for (let i = 0; i < PHOTO_SLOTS.length; i++) {
-    const slot = PHOTO_SLOTS[i];
-    const colIdx = i % 2;
-    const x = MARGIN + colIdx * (cellW + gap);
-    if (colIdx === 0 && i > 0) y -= cellH + 26;
-    const top = y;
+    const landscape = img.width > img.height;
+    const page: PDFPage = doc.addPage(landscape ? [A4[1], A4[0]] : A4);
+    const W = page.getWidth();
+    const H = page.getHeight();
+    let y = H - MARGIN;
 
     page.drawText(slot.label.toUpperCase(), {
-      x,
-      y: top - 9,
-      size: 7.5,
+      x: MARGIN,
+      y: y - 16,
+      size: 15,
       font: bold,
-      color: grey,
+      color: tealDeep,
     });
-    const frameTop = top - 14;
-    page.drawRectangle({
-      x,
-      y: frameTop - cellH,
-      width: cellW,
-      height: cellH,
-      borderColor: lineCol,
-      borderWidth: 1,
-      color: rgb(0.98, 0.985, 0.98),
+    y -= 24;
+    page.drawLine({
+      start: { x: MARGIN, y },
+      end: { x: W - MARGIN, y },
+      thickness: 1.2,
+      color: teal,
     });
+    y -= 16;
 
-    const data = survey.billeder.fotos[slot.k];
-    if (data) {
-      try {
-        const bytes = await dataUrlToBytes(data);
-        const img = data.startsWith('data:image/png')
-          ? await doc.embedPng(bytes)
-          : await doc.embedJpg(bytes);
-        // "contain" inde i rammen
-        const r = Math.min(cellW / img.width, cellH / img.height);
-        const iw = img.width * r;
-        const ih = img.height * r;
-        page.drawImage(img, {
-          x: x + (cellW - iw) / 2,
-          y: frameTop - cellH + (cellH - ih) / 2,
-          width: iw,
-          height: ih,
-        });
-      } catch {
-        /* ignorér ulæseligt foto */
-      }
-    } else {
-      page.drawText('(intet billede)', {
-        x: x + cellW / 2 - font.widthOfTextAtSize('(intet billede)', 9) / 2,
-        y: frameTop - cellH / 2,
-        size: 9,
-        font,
-        color: grey,
-      });
-    }
+    // Tilgængeligt område: hele bredden, fra under overskriften til bundmargen.
+    const availW = W - 2 * MARGIN;
+    const availH = y - MARGIN;
+    const r = Math.min(availW / img.width, availH / img.height);
+    const iw = img.width * r;
+    const ih = img.height * r;
+    page.drawImage(img, {
+      x: MARGIN + (availW - iw) / 2,
+      y: MARGIN + (availH - ih) / 2,
+      width: iw,
+      height: ih,
+    });
   }
 }
