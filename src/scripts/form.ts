@@ -1,7 +1,7 @@
 // Form-state: binder DOM'ens felter til ét `survey`-objekt, auto-gemmer i
 // IndexedDB (trin 3), håndterer planskitse (trin 4) og foto-upload (trin 4),
 // samt skema-listen i skuffen.
-import { blankSurvey, type Survey } from './survey';
+import { blankSurvey, newPhotoId, type ExtraPhoto, type Survey } from './survey';
 import {
   deleteSurvey,
   getActiveId,
@@ -265,6 +265,13 @@ function setupPhotos(): void {
       void persist();
     });
   });
+
+  // "Tilføj billede" → nyt ekstra-foto med egen titel (standard "Andet").
+  $('#add-photo')?.addEventListener('click', () => {
+    survey.billeder.ekstra.push({ id: newPhotoId(), titel: 'Andet', data: '' });
+    renderExtraPhotos();
+    void persist();
+  });
 }
 
 function renderPhoto(slot: string): void {
@@ -282,8 +289,79 @@ function renderPhoto(slot: string): void {
   }
 }
 
+// ---------- ekstra fotos (dynamiske, med egen titel) ----------
+function buildExtraTile(p: ExtraPhoto): HTMLElement {
+  const tile = document.createElement('div');
+  tile.className = 'photo extra' + (p.data ? ' has' : '');
+  tile.dataset.extraId = p.id;
+
+  if (p.data) {
+    const img = new Image();
+    img.src = p.data;
+    tile.appendChild(img);
+  }
+
+  const title = document.createElement('input');
+  title.type = 'text';
+  title.className = 'tag-input';
+  title.value = p.titel;
+  title.placeholder = 'Titel';
+  title.maxLength = 40;
+  title.addEventListener('input', () => {
+    p.titel = title.value;
+    scheduleSave();
+  });
+
+  const drop = document.createElement('label');
+  drop.className = 'drop';
+  const ph = document.createElement('div');
+  ph.className = 'ph';
+  ph.innerHTML = '<span class="ph-icon">📷</span>Tilføj billede';
+  const file = document.createElement('input');
+  file.type = 'file';
+  file.accept = 'image/*';
+  file.setAttribute('capture', 'environment');
+  file.addEventListener('change', async () => {
+    const f = file.files?.[0];
+    if (!f) return;
+    try {
+      p.data = await downscaleToDataURL(f);
+      renderExtraPhotos();
+      await persist();
+    } catch {
+      toast('Kunne ikke indlæse billedet');
+    }
+    file.value = '';
+  });
+  drop.append(ph, file);
+
+  const rm = document.createElement('button');
+  rm.type = 'button';
+  rm.className = 'rm';
+  rm.textContent = 'Fjern';
+  rm.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    survey.billeder.ekstra = survey.billeder.ekstra.filter((x) => x.id !== p.id);
+    renderExtraPhotos();
+    void persist();
+  });
+
+  tile.append(title, drop, rm);
+  return tile;
+}
+
+function renderExtraPhotos(): void {
+  const grid = $('#photos-grid');
+  const addBtn = $('#add-photo');
+  if (!grid || !addBtn) return;
+  $$('.photo.extra', grid).forEach((el) => el.remove());
+  survey.billeder.ekstra.forEach((p) => grid.insertBefore(buildExtraTile(p), addBtn));
+}
+
 function renderPhotos(): void {
   $$<HTMLLabelElement>('.photo[data-slot]').forEach((l) => renderPhoto(l.dataset.slot!));
+  renderExtraPhotos();
 }
 
 // ---------- skema-liste (skuffe) ----------

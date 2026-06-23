@@ -116,7 +116,7 @@ const check =
             </div>
             <div class="field" style="margin-bottom:0">
               <label>Fotos</label>
-              <div class="photos">
+              <div class="photos" id="photos-grid">
                 {PHOTO_SLOTS.map((p) => (
                   <label class="photo" data-slot={p.k}>
                     <span class="tag">{p.label}</span>
@@ -125,6 +125,9 @@ const check =
                     <button class="rm" type="button">Fjern</button>
                   </label>
                 ))}
+                <button class="photo-add" id="add-photo" type="button">
+                  <span class="ph"><span class="ph-icon">＋</span>Tilføj billede</span>
+                </button>
               </div>
             </div>
           </div>

@@ -489,6 +489,67 @@ select {
   text-transform: uppercase;
 }
 
+/* Ekstra fotos: redigerbar titel + altid synlig fjern-knap. */
+.photo .drop {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+.photo .tag-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  background: rgba(22, 32, 28, 0.62);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 4px 7px;
+  text-transform: uppercase;
+  border: none;
+  outline: none;
+}
+.photo .tag-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+.photo.extra {
+  cursor: default;
+}
+.photo.extra .rm {
+  display: block;
+}
+.photo.extra.has .ph {
+  display: none;
+}
+
+/* "Tilføj billede"-felt (samme størrelse som en fotokasse). */
+.photo-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  aspect-ratio: 4 / 3;
+  background: #fafbfa;
+  cursor: pointer;
+  color: var(--green);
+}
+.photo-add .ph {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.photo-add .ph-icon {
+  font-size: 20px;
+}
+
 /* ---------- Skitse ---------- */
 .label-row {
   display: flex;

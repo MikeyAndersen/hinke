@@ -277,56 +277,68 @@ export async function buildPdf(survey: Survey): Promise<Uint8Array> {
 }
 
 async function drawPhotoPages(doc: PDFDocument, survey: Survey, bold: PDFFont): Promise<void> {
-  // Ét foto pr. side, så stort som muligt (contain inden for margenerne). Tomme
-  // slots springes over, så der ikke kommer blanke sider. Brede billeder lægges
-  // på en liggende A4 så de fylder mest muligt.
+  // Ét foto pr. side, så stort som muligt. Faste slots først, derefter ekstra
+  // fotos med montørens egne titler. Tomme/ulæselige springes over.
   for (const slot of PHOTO_SLOTS) {
-    const data = survey.billeder.fotos[slot.k];
-    if (!data) continue;
-
-    let img;
-    try {
-      const bytes = await dataUrlToBytes(data);
-      img = data.startsWith('data:image/png')
-        ? await doc.embedPng(bytes)
-        : await doc.embedJpg(bytes);
-    } catch {
-      continue; // ulæseligt foto — spring over
-    }
-
-    const landscape = img.width > img.height;
-    const page: PDFPage = doc.addPage(landscape ? [A4[1], A4[0]] : A4);
-    const W = page.getWidth();
-    const H = page.getHeight();
-    let y = H - MARGIN;
-
-    page.drawText(slot.label.toUpperCase(), {
-      x: MARGIN,
-      y: y - 16,
-      size: 15,
-      font: bold,
-      color: tealDeep,
-    });
-    y -= 24;
-    page.drawLine({
-      start: { x: MARGIN, y },
-      end: { x: W - MARGIN, y },
-      thickness: 1.2,
-      color: teal,
-    });
-    y -= 16;
-
-    // Tilgængeligt område: hele bredden, fra under overskriften til bundmargen.
-    const availW = W - 2 * MARGIN;
-    const availH = y - MARGIN;
-    const r = Math.min(availW / img.width, availH / img.height);
-    const iw = img.width * r;
-    const ih = img.height * r;
-    page.drawImage(img, {
-      x: MARGIN + (availW - iw) / 2,
-      y: MARGIN + (availH - ih) / 2,
-      width: iw,
-      height: ih,
-    });
+    await drawPhotoPage(doc, bold, slot.label, survey.billeder.fotos[slot.k]);
   }
+  for (const extra of survey.billeder.ekstra) {
+    await drawPhotoPage(doc, bold, extra.titel || 'Andet', extra.data);
+  }
+}
+
+async function drawPhotoPage(
+  doc: PDFDocument,
+  bold: PDFFont,
+  label: string,
+  data: string | undefined,
+): Promise<void> {
+  // Ét foto, så stort som muligt (contain inden for margenerne). Brede billeder
+  // lægges på en liggende A4 så de fylder mest muligt.
+  if (!data) return;
+
+  let img;
+  try {
+    const bytes = await dataUrlToBytes(data);
+    img = data.startsWith('data:image/png')
+      ? await doc.embedPng(bytes)
+      : await doc.embedJpg(bytes);
+  } catch {
+    return; // ulæseligt foto — spring over
+  }
+
+  const landscape = img.width > img.height;
+  const page: PDFPage = doc.addPage(landscape ? [A4[1], A4[0]] : A4);
+  const W = page.getWidth();
+  const H = page.getHeight();
+  let y = H - MARGIN;
+
+  page.drawText(sanitize(label).toUpperCase(), {
+    x: MARGIN,
+    y: y - 16,
+    size: 15,
+    font: bold,
+    color: tealDeep,
+  });
+  y -= 24;
+  page.drawLine({
+    start: { x: MARGIN, y },
+    end: { x: W - MARGIN, y },
+    thickness: 1.2,
+    color: teal,
+  });
+  y -= 16;
+
+  // Tilgængeligt område: hele bredden, fra under overskriften til bundmargen.
+  const availW = W - 2 * MARGIN;
+  const availH = y - MARGIN;
+  const r = Math.min(availW / img.width, availH / img.height);
+  const iw = img.width * r;
+  const ih = img.height * r;
+  page.drawImage(img, {
+    x: MARGIN + (availW - iw) / 2,
+    y: MARGIN + (availH - ih) / 2,
+    width: iw,
+    height: ih,
+  });
 }
