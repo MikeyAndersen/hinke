@@ -7,7 +7,7 @@ export type Radiator = 'S' | 'M' | 'L' | 'XL' | '';
 export type Olietank = 'Almindelig' | 'Nedgravet' | 'Ingen opg.' | '';
 export type Demontering = 'Standard' | 'L' | 'XL' | '';
 export type Service = 'Basis' | 'Udvidet' | '';
-export type SendState = 'draft' | 'queued' | 'sent';
+export type SendState = 'draft' | 'sent';
 
 /** Antal-komponent: afkrydsning + valgfrit antal (bekræftes med Hinke). */
 export interface Komponent {

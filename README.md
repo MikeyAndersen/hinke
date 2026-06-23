@@ -13,7 +13,8 @@ for arbejdsretningslinjer.
 - **PWA**: manifest + Workbox-service worker (`@vite-pwa/astro`) → installérbar og 100 % offline.
 - **IndexedDB**: lokale skemaer (kladder) + send-kø.
 - **pdf-lib**: client-side PDF.
-- **Cloudflare Pages** + én Pages Function `/api/send` der kalder **Resend**.
+- **Cloudflare Pages** (statisk hosting). Ingen backend — "Send til kontor" henter
+  PDF'en lokalt og åbner et mailudkast via `mailto` i montørens mailklient.
 
 ## Udvikling
 
@@ -26,56 +27,56 @@ npm run preview    # test build lokalt
 
 PWA-ikonerne genereres fra `public/logo.svg`-kilden via `npm run generate-pwa-assets`.
 
-### Test af mail-afsendelse lokalt
+### Send til kontor
 
-`/api/send` er en Cloudflare Pages Function og kører ikke i `astro dev`. Test den med Wrangler:
-
-```bash
-cp .dev.vars.example .dev.vars   # udfyld dine Resend-secrets
-npm run build
-npx wrangler pages dev dist
-```
-
-Uden gyldige secrets svarer endpointet 500; afsendelser bliver i offline-køen og kan prøves igen.
+"Send til kontor" danner PDF'en, henter den lokalt (Overførsler/Downloads) og åbner et
+`mailto`-udkast i montørens mailklient (fx Outlook) med emne og brødtekst udfyldt.
+Montøren vedhæfter selv den downloadede PDF og sender — virker også offline (mailklienten
+lægger mailen i sin egen udbakke). Modtager-mailen sættes i `OFFICE_EMAIL` i
+`src/scripts/send.ts` (pt. tom indtil kontorets adresse er bekræftet).
 
 ## Deploy (Cloudflare Pages)
 
-1. Forbind GitHub-repoet til et Cloudflare Pages-projekt.
-2. Build-indstillinger: **Build command** `npm run build`, **Output directory** `dist`.
-3. Sæt environment variables (Production + Preview):
-   - `RESEND_API_KEY` — API-nøgle fra Resend
-   - `OFFICE_EMAIL` — kontorets modtager-mail (fx `info@hinke.dk`)
-   - `FROM_EMAIL` — afsender på et **verificeret** Resend-domæne
-4. Verificér afsender-domænet i Resend (SPF/DKIM), ellers afvises mails.
-5. Push til main → auto-build og deploy. `functions/api/send.ts` udstilles som `/api/send`.
+Fuldt statisk — ingen Functions, ingen secrets.
+
+1. Build-indstillinger: **Build command** `npm run build`, **Output directory** `dist`.
+2. Manuelt deploy: `npx wrangler pages deploy dist`. (Auto-build ved push kræver at
+   GitHub-repoet forbindes til Pages-projektet i dashboardet.)
+3. Custom domæne `hinke.nova-tech.dk`: domænet er tilføjet på Pages-projektet og kræver
+   en CNAME `hinke → hinke-installationsskema.pages.dev` (proxied) i `nova-tech.dk`-zonen.
 
 ## Datamodel
 
 `Survey`-objektet (se `src/scripts/survey.ts`) er bevaret fra prototypen for kontinuitet.
-`sendState`: `draft` → `queued` → `sent`.
+`sendState`: `draft` → `sent`.
 
 ## Struktur
 
 ```
-functions/api/send.ts   Pages Function: modtager PDF, kalder Resend
 public/                 logo, favicon, PWA-ikoner, manifest
 src/
   layouts/Layout.astro  app-shell <head> (manifest, SW, favicon)
   pages/index.astro     formularen
   scripts/
     survey.ts           datamodel + blankSurvey()
-    db.ts               IndexedDB: skemaer + send-kø
+    db.ts               IndexedDB: skemaer (kladder)
     form.ts             binding, autosave, skuffe, knapper
     sketch.ts           planskitse-canvas (med maksimér)
     photos.ts           foto-upload + ned-skalering
     pdf.ts              PDF-generering (pdf-lib)
-    send.ts             afsendelse + offline-kø
+    send.ts             send til kontor: hent PDF lokalt + mailto-udkast
   styles/global.css     design-tokens + komponenter
 ```
 
 ## Status
 
-Trin 1–7 er implementeret (scaffold/PWA, formular, IndexedDB, skitse+foto, PDF, afsendelse+kø,
-branding). **Åbent:** Hinkes skabelon-PDF mangler — PDF'en bruger indtil videre et selvstændigt
-layout; læg `HinkeEnergiSkabelonFørsteVersion.pdf` i `public/` for at lægge værdierne oven på
-skabelonen som baggrund. Trin 8 (Cloudflare-deploy + secrets) udføres når repoet forbindes.
+Implementeret: scaffold/PWA, formular, IndexedDB, skitse+foto, PDF, "Send til kontor"
+(hent PDF lokalt + mailto-udkast), branding. Deployet på Cloudflare Pages
+(`hinke-installationsskema.pages.dev`).
+
+**Åbent:**
+- Hinkes skabelon-PDF mangler — PDF'en bruger indtil videre et selvstændigt layout; læg
+  `HinkeEnergiSkabelonFørsteVersion.pdf` i `public/` for at lægge værdierne oven på
+  skabelonen som baggrund.
+- Kontorets modtager-mail (`OFFICE_EMAIL` i `src/scripts/send.ts`) er endnu ikke bekræftet.
+- Custom domæne `hinke.nova-tech.dk`: CNAME mangler i `nova-tech.dk`-zonen (se Deploy).

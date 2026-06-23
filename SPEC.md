@@ -10,8 +10,9 @@ felter og dropdown-værdier.
 
 En offline-first felt-app som en Hinke-montør/sælger bruger på sin **bærbar/PC** ude hos
 kunden til at udfylde et installationsskema for en varmepumpe. Når skemaet er færdigt
-genereres en **PDF**, som **sendes på mail til kontoret**. App'en skal virke uden net og
-lægge afsendelser i kø, der tømmes når der igen er forbindelse.
+genereres en **PDF**, som montøren henter lokalt og sender til kontoret via sin egen
+mailklient — et udfyldt mailudkast åbnes automatisk. App'en virker uden net; selve
+mailen håndteres af mailklienten (fx Outlooks udbakke).
 
 App'en erstatter et eksisterende papir-/Excel-skema (se `HinkeEnergiSkabelonFørsteVersion.pdf`).
 
@@ -19,11 +20,11 @@ App'en erstatter et eksisterende papir-/Excel-skema (se `HinkeEnergiSkabelonFør
 
 | Emne | Valg |
 |------|------|
-| Output | PDF sendt på mail til kontoret |
-| Online/offline | Offline-first; lokale kladder + send-kø der tømmes ved net |
+| Output | PDF hentet lokalt + mailudkast via montørens mailklient (mailto) |
+| Online/offline | Offline-first; lokale kladder. Mailen håndteres af mailklienten (fx Outlook-udbakke) |
 | Primær enhed | Bærbar / PC |
 | Hosting | Cloudflare Pages |
-| Backend | Én Cloudflare Pages Function til mail-afsendelse |
+| Backend | Ingen — fuldt statisk app (mailto i stedet for server-afsendelse) |
 | Login | **Ikke i v1** (hver enhed har sine egne lokale kladder; ingen brugerkonti) |
 | Database | **Ikke i v1** (mailen er journalen; D1 kan tilføjes i fase 2 til log) |
 
@@ -33,11 +34,12 @@ App'en erstatter et eksisterende papir-/Excel-skema (se `HinkeEnergiSkabelonFør
 ## 3. Arkitektur
 
 ```
-[ Astro PWA (statisk) ]  ──►  IndexedDB (kladder + send-kø)
+[ Astro PWA (statisk) ]  ──►  IndexedDB (lokale kladder)
         │
-        │ ved net: POST PDF (base64) + metadata
-        ▼
-[ Cloudflare Pages Function /api/send ]  ──►  Resend API  ──►  kontorets mail
+        │ "Send til kontor": dan PDF (pdf-lib)
+        ├──►  hent PDF lokalt (download)
+        └──►  åbn mailto: → montørens mailklient (Outlook) med udfyldt udkast
+                 → montøren vedhæfter PDF'en og sender
 ```
 
 - **Frontend:** Astro, statisk output, vanilla CSS (samme stil som prototypen — ingen Tailwind).
@@ -45,12 +47,14 @@ App'en erstatter et eksisterende papir-/Excel-skema (se `HinkeEnergiSkabelonFør
 - **PWA:** manifest + service worker så app'en kan installeres og køre 100% offline.
   Service worker cacher app-shell; må aldrig blokere offline-brug.
 - **Lokal lagring:** IndexedDB (erstatter prototypens `window.storage`). Gemmer hvert
-  skema som objekt + en separat send-kø.
+  skema som objekt.
 - **PDF:** genereres **client-side** med `pdf-lib`, der lægger felt-værdier, skitse og
   fotos oven på den eksisterende skabelon-PDF som baggrund → pixel-præcis match til Hinkes form.
-- **Afsendelse:** Pages Function `/api/send` modtager PDF + emne/afsender og kalder Resend.
-- **Kø:** er der ikke net (eller fejler kaldet), beholdes afsendelsen i IndexedDB-køen og
-  prøves igen automatisk når `navigator.onLine` bliver true.
+- **Afsendelse:** "Send til kontor" danner PDF'en, henter den lokalt og åbner et
+  mailto-udkast i montørens mailklient (To/emne/brødtekst udfyldt). Montøren vedhæfter
+  selv PDF'en. mailto kan ikke vedhæfte filer (RFC 6068), derfor manuel vedhæftning.
+- **Offline:** alt virker uden net; mailklienten (fx Outlook) lægger selv mailen i sin
+  udbakke til der er forbindelse. Ingen egen send-kø i appen.
 
 ## 4. Datamodel
 
@@ -59,7 +63,7 @@ Genbrug strukturen fra prototypen (`survey`-objektet):
 ```ts
 type Survey = {
   id: string; createdAt: number; updatedAt: number;
-  sendState: "draft" | "queued" | "sent";   // erstatter prototypens syncState
+  sendState: "draft" | "sent";   // erstatter prototypens syncState
   kunde:   { navn; telefon; adresse; dato; instTid; placering: "inde"|"ude"|"begge"|"" };
   forhold: { fundament: "ude"|"inde"|""; fliser: boolean; afdaekning: boolean };
   planskitse: { h; b; d; tegning: string /* dataURL */ };
@@ -115,22 +119,24 @@ Ekstra tilkøb (fritekst).
   Indedel, Udedel, Eltavle, Andet, Andet).
 - Filnavn: `Hinke_installation_<kundenavn>_<dato>.pdf`.
 
-## 7. Mail-afsendelse
+## 7. Mail-afsendelse (mailto, ingen backend)
 
-- Endpoint: `POST /api/send` (Pages Function) med `{ pdfBase64, filename, kunde, adresse }`.
-- Funktion kalder Resend med PDF som vedhæftning.
-- Emne: `Installationsskema – <kundenavn>, <adresse>`.
-- Modtager: kontorets adresse (konfigurerbar, fx `info@hinke.dk`).
-- Afsender: en verificeret Resend-domæneafsender.
-- Secrets som Cloudflare Pages environment variables: `RESEND_API_KEY`, `OFFICE_EMAIL`,
-  `FROM_EMAIL`. **Aldrig i repo.**
+- "Send til kontor" henter PDF'en lokalt og åbner `mailto:` i montørens mailklient.
+- Emne: `Installationsskema – <kundenavn> – <dato>`. Brødtekst: kort resumé (kunde,
+  adresse, telefon, dato) + opfordring til at vedhæfte den downloadede PDF.
+- Modtager: sættes i `OFFICE_EMAIL`-konstanten i `src/scripts/send.ts` (pt. tom indtil
+  kontorets adresse er bekræftet — montøren udfylder selv modtageren).
+- Ingen secrets, ingen Resend, ingen Pages Function, ingen domæne-verifikation.
+
+> IDÉ TIL SENERE: server-afsendelse med automatisk genforsøg (Resend + send-kø) kan
+> genindføres, hvis kontoret vil have mails uden manuel vedhæftning.
 
 ## 8. Offline-adfærd
 
 - Al udfyldning fungerer uden net; kladder gemmes løbende i IndexedDB.
-- "Send til kontor" offline → læg i send-kø, vis status "Afventer net".
-- `online`-event eller næste app-start med net → tøm køen automatisk, marker som "Sendt".
-- Vis tydelig status pr. skema (kladde / i kø / sendt) som i prototypen.
+- "Send til kontor" virker også offline: PDF'en dannes/hentes lokalt og mailudkastet
+  åbnes; mailklienten (fx Outlook) sender når der er net igen.
+- Vis tydelig status pr. skema (kladde / sendt) som i prototypen.
 
 ## 9. Branding
 
@@ -142,11 +148,13 @@ Ekstra tilkøb (fritekst).
 
 ## 10. Deploy
 
-- Forbind GitHub-repoet direkte til **Cloudflare Pages** (auto-build ved push) — ikke
-  SFTP/One.com-mønstret denne gang, da vi skal bruge Pages Functions.
-- Build: `npm run build`, output `dist/`.
-- Sæt environment variables/secrets i Cloudflare Pages-projektet.
-- DNS via Cloudflare; foreslået subdomæne aftales med Hinke.
+- **Cloudflare Pages**, projekt `hinke-installationsskema`. Live på
+  `https://hinke-installationsskema.pages.dev`.
+- Build: `npm run build`, output `dist/`. Fuldt statisk — ingen Functions/secrets.
+- Custom domæne `hinke.nova-tech.dk`: tilføjet på Pages-projektet; kræver en CNAME
+  `hinke → hinke-installationsskema.pages.dev` (proxied) i `nova-tech.dk`-zonen.
+- Auto-build ved push kræver at GitHub-repoet forbindes i Pages-dashboardet; ellers
+  deployes manuelt med `npx wrangler pages deploy dist`.
 
 ## 11. Uden for scope (v1) / fase 2
 

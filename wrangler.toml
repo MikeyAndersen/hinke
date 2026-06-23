@@ -1,9 +1,6 @@
-# Cloudflare Pages-konfiguration. Den statiske Astro-build ligger i dist/, og
-# Pages samler automatisk Functions op fra functions/ (→ /api/send).
+# Cloudflare Pages-konfiguration. Den statiske Astro-build ligger i dist/.
+# Appen er fuldt statisk — ingen Functions, ingen secrets: "Send til kontor"
+# henter PDF'en lokalt og åbner montørens mailklient via mailto.
 name = "hinke-installationsskema"
 compatibility_date = "2025-06-01"
 pages_build_output_dir = "dist"
-
-# Secrets (RESEND_API_KEY, OFFICE_EMAIL, FROM_EMAIL) sættes som environment
-# variables i Cloudflare Pages-projektet — aldrig her i repoet.
-# Lokalt udvikling: kopiér .dev.vars.example til .dev.vars og kør `wrangler pages dev dist`.

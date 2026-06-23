@@ -1,26 +1,16 @@
 // IndexedDB-lag: gemmer hvert skema som ét objekt og kan liste dem.
-// Afløser trin 2's midlertidige localStorage-stub. Send-køen (trin 6) lægges
-// senere i sin egen object store i samme database.
+// Afløser trin 2's midlertidige localStorage-stub.
+//
+// IDÉ TIL SENERE: en offline send-kø (egen object store) kan genindføres, hvis
+// "Send til kontor" en dag skal sende via en server med automatisk genforsøg.
+// I dag henter "Send til kontor" blot PDF'en lokalt og åbner mailklienten.
 import type { Survey } from './survey';
 import { ensureShape } from './survey';
 
 const DB_NAME = 'hinke';
 const DB_VERSION = 2;
 const STORE = 'surveys';
-const QUEUE = 'queue';
 const ACTIVE_KEY = 'hinke:active';
-
-/** Én ventende afsendelse pr. skema (idempotent — nøgle = surveyId). */
-export interface QueueItem {
-  surveyId: string;
-  sendId: string; // stabil pr. afsendelse — bruges som idempotensnøgle ved genforsøg
-  filename: string;
-  kunde: string;
-  adresse: string;
-  pdfBase64: string;
-  createdAt: number;
-  attempts: number;
-}
 
 let dbPromise: Promise<IDBDatabase> | undefined;
 
@@ -33,9 +23,6 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE)) {
         const os = db.createObjectStore(STORE, { keyPath: 'id' });
         os.createIndex('updatedAt', 'updatedAt');
-      }
-      if (!db.objectStoreNames.contains(QUEUE)) {
-        db.createObjectStore(QUEUE, { keyPath: 'surveyId' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -84,27 +71,6 @@ export async function listSurveys(): Promise<Survey[]> {
   const db = await openDB();
   const raw = await reqToPromise(db.transaction(STORE).objectStore(STORE).getAll());
   return (raw as Survey[]).map(ensureShape).sort((a, b) => b.updatedAt - a.updatedAt);
-}
-
-// ---------- send-kø ----------
-export async function queuePut(item: QueueItem): Promise<void> {
-  const db = await openDB();
-  const tx = db.transaction(QUEUE, 'readwrite');
-  tx.objectStore(QUEUE).put(item);
-  await txDone(tx);
-}
-
-export async function queueDelete(surveyId: string): Promise<void> {
-  const db = await openDB();
-  const tx = db.transaction(QUEUE, 'readwrite');
-  tx.objectStore(QUEUE).delete(surveyId);
-  await txDone(tx);
-}
-
-export async function queueGetAll(): Promise<QueueItem[]> {
-  const db = await openDB();
-  const raw = await reqToPromise(db.transaction(QUEUE).objectStore(QUEUE).getAll());
-  return (raw as QueueItem[]).sort((a, b) => a.createdAt - b.createdAt);
 }
 
 // ---------- aktivt skema (lille markør, holdes i localStorage) ----------

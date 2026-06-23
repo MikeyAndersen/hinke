@@ -9,13 +9,11 @@ import {
   listSurveys,
   migrateLegacyDraft,
   putSurvey,
-  queueDelete,
   setActiveId,
 } from './db';
 import { SketchPad } from './sketch';
 import { downscaleToDataURL } from './photos';
-import { buildPdf, pdfFilename } from './pdf';
-import { enqueue, flushQueue } from './send';
+import { downloadPdf, sendToOffice as sendFlow } from './send';
 
 let survey: Survey = blankSurvey();
 let saveTimer: number | undefined;
@@ -69,9 +67,7 @@ function renderStatus(): void {
     pill.querySelector('.label')!.textContent =
       survey.sendState === 'sent'
         ? 'Sendt ' + fmtTime(survey.updatedAt)
-        : survey.sendState === 'queued'
-          ? 'Afventer net (i kø)'
-          : 'Gemt kladde ' + fmtTime(survey.updatedAt);
+        : 'Gemt kladde ' + fmtTime(survey.updatedAt);
   }
   const name = $('#meta-name');
   const saved = $('#meta-saved');
@@ -93,10 +89,8 @@ async function persist(): Promise<void> {
   }
 }
 function scheduleSave(): void {
-  // Redigerer montøren et sendt/kø-lagt skema, bliver det igen en kladde, og en
-  // evt. forældet afsendelse fjernes fra køen (så stale data ikke sendes).
+  // Redigerer montøren et allerede sendt skema, bliver det igen en kladde.
   if (survey.sendState !== 'draft') {
-    if (survey.sendState === 'queued') void queueDelete(survey.id);
     survey.sendState = 'draft';
     renderStatus();
   }
@@ -311,14 +305,8 @@ async function refreshJobs(): Promise<void> {
   }
   list.innerHTML = '';
   all.forEach((s) => {
-    const color =
-      s.sendState === 'sent'
-        ? 'var(--green)'
-        : s.sendState === 'queued'
-          ? 'var(--amber)'
-          : 'var(--grey)';
-    const stateTxt =
-      s.sendState === 'sent' ? 'Sendt' : s.sendState === 'queued' ? 'I kø' : 'Kladde';
+    const color = s.sendState === 'sent' ? 'var(--green)' : 'var(--grey)';
+    const stateTxt = s.sendState === 'sent' ? 'Sendt' : 'Kladde';
     const item = document.createElement('div');
     item.className = 'jobitem' + (s.id === survey.id ? ' active' : '');
     item.innerHTML =
@@ -373,16 +361,7 @@ async function exportPdf(): Promise<void> {
   await persist();
   toast('Genererer PDF …');
   try {
-    const bytes = await buildPdf(survey);
-    const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = pdfFilename(survey);
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    await downloadPdf(survey);
     toast('PDF gemt');
   } catch (e) {
     console.error(e);
@@ -391,23 +370,9 @@ async function exportPdf(): Promise<void> {
 }
 
 // ---------- send til kontor ----------
-async function markSent(surveyId: string): Promise<void> {
-  const s = await getSurvey(surveyId);
-  if (s) {
-    s.sendState = 'sent';
-    await putSurvey(s);
-  }
-  if (surveyId === survey.id) {
-    survey.sendState = 'sent';
-    renderStatus();
-  }
-}
-
-async function flush(): Promise<void> {
-  await flushQueue(markSent);
-  if ($('#drawer')?.classList.contains('open')) await refreshJobs();
-}
-
+// Henter PDF'en lokalt og åbner mailklienten med et udfyldt udkast; montøren
+// vedhæfter selv PDF'en. Markér som sendt og gem FØR mailto åbnes, da
+// navigationen til mailklienten kan afbryde resten af funktionen.
 async function sendToOffice(): Promise<void> {
   if (!survey.kunde.navn.trim() && !survey.kunde.adresse.trim()) {
     toast('Udfyld mindst kundenavn eller adresse');
@@ -416,14 +381,14 @@ async function sendToOffice(): Promise<void> {
   if (survey.sendState === 'sent' && !confirm('Skemaet er allerede sendt. Send igen?')) return;
 
   try {
-    await enqueue(survey);
-    survey.sendState = 'queued';
+    survey.sendState = 'sent';
     await persist();
-    toast(navigator.onLine ? 'Sender til kontoret …' : 'Offline — lagt i kø');
-    await flush();
+    if ($('#drawer')?.classList.contains('open')) await refreshJobs();
+    toast('PDF hentet — vedhæft den i mailen');
+    await sendFlow(survey);
   } catch (e) {
     console.error(e);
-    toast('Kunne ikke sende');
+    toast('Kunne ikke danne PDF');
   }
 }
 
@@ -462,18 +427,13 @@ async function init(): Promise<void> {
   $('#btn-pdf')?.addEventListener('click', () => void exportPdf());
   $('#btn-send')?.addEventListener('click', () => void sendToOffice());
   $('#scrim')?.addEventListener('click', closeDrawer);
-  window.addEventListener('online', () => {
-    renderNet();
-    void flush();
-  });
+  window.addEventListener('online', renderNet);
   window.addEventListener('offline', renderNet);
   document.addEventListener('pwa:offline-ready', () => toast('Klar til offline-brug'));
 
   renderNet();
   await bootstrap();
   populate();
-  // Tøm evt. ventende afsendelser fra et tidligere offline-besøg.
-  void flush();
 }
 
 if (document.readyState === 'loading') {
