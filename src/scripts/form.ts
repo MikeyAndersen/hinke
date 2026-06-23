@@ -190,8 +190,10 @@ function setupSketch(): void {
     setHintVisible('sketch-hint', inlinePad.isEmpty());
   }
 
+  $('#sketch-undo')?.addEventListener('click', () => inlinePad?.undo());
   $('#sketch-clear')?.addEventListener('click', () => inlinePad?.clear());
   $('#sketch-max')?.addEventListener('click', openSketchOverlay);
+  $('#sketch-o-undo')?.addEventListener('click', () => bigPad?.undo());
   $('#sketch-o-clear')?.addEventListener('click', () => bigPad?.clear());
   $('#sketch-o-done')?.addEventListener('click', closeSketchOverlay);
   document.addEventListener('keydown', (e) => {

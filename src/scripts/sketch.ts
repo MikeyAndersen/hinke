@@ -13,6 +13,10 @@ export class SketchPad {
   private data = '';
   private cssW = 0;
   private cssH = 0;
+  // Snapshot (dataURL) af tegningen FØR hvert strøg — så "Fortryd" kan rulle ét
+  // strøg tilbage ad gangen. Begrænset i længde for ikke at fylde unødig hukommelse.
+  private history: string[] = [];
+  private static readonly MAX_HISTORY = 40;
 
   constructor(canvas: HTMLCanvasElement, onChange: (data: string) => void) {
     this.canvas = canvas;
@@ -48,6 +52,7 @@ export class SketchPad {
   /** Indlæs en eksisterende tegning (skaleres til feltet). */
   load(data: string): void {
     this.data = data || '';
+    this.history = [];
     this.fit();
   }
 
@@ -60,14 +65,32 @@ export class SketchPad {
     return !this.data;
   }
 
-  clear(): void {
+  private wipe(): void {
     const { ctx, canvas } = this;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
+  }
+
+  clear(): void {
+    this.wipe();
     this.data = '';
+    this.history = [];
     this.onChange('');
+  }
+
+  /** Rul ét strøg tilbage. Gør intet hvis der ikke er noget at fortryde. */
+  undo(): void {
+    if (!this.history.length) return;
+    this.data = this.history.pop() ?? '';
+    this.wipe();
+    if (this.data) this.drawData(this.data);
+    this.onChange(this.data);
+  }
+
+  canUndo(): boolean {
+    return this.history.length > 0;
   }
 
   private drawData(data: string): void {
@@ -79,6 +102,9 @@ export class SketchPad {
   private start = (e: PointerEvent): void => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
+    // Gem tegningen som den så ud lige før dette strøg, så "Fortryd" kan rulle hertil.
+    this.history.push(this.data);
+    if (this.history.length > SketchPad.MAX_HISTORY) this.history.shift();
     this.drawing = true;
     try {
       this.canvas.setPointerCapture(e.pointerId);
