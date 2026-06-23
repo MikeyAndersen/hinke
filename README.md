@@ -4,7 +4,7 @@ Offline-first felt-app (PWA) hvor en Hinke-montør udfylder et varmepumpe-
 installationsskema, genererer en PDF og sender den på mail til kontoret — også
 uden net (afsendelser lægges i kø og sendes når der igen er forbindelse).
 
-Se [`SPEC.md`](./SPEC.md) for den fulde specifikation og [`CLAUDE.md`](./CLAUDE.md)
+Se [`SPEC.md`](./SPEC.md) for den fulde specifikation og [`DEVELOPMENT.md`](./DEVELOPMENT.md)
 for arbejdsretningslinjer.
 
 ## Tech

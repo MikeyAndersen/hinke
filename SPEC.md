@@ -1,6 +1,6 @@
 # Hinke Energi — Installationsskema (felt-app)
 
-Projektspecifikation til implementering. Læs denne sammen med `CLAUDE.md` og brug
+Projektspecifikation til implementering. Læs denne sammen med `DEVELOPMENT.md` og brug
 `hinke-installationsskema-prototype.html` som visuel/strukturel reference for layout,
 felter og dropdown-værdier.
 
