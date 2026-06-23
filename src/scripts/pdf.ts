@@ -250,7 +250,7 @@ export async function buildPdf(survey: Survey): Promise<Uint8Array> {
     { label: 'Olietank', value: txt(t.olietank) },
     { label: 'Demontering', value: txt(t.demontering) },
     { label: 'Service', value: txt(t.service) },
-    { label: 'Egne opgaver', value: txt(t.egneOpgaver), full: true },
+    { label: 'Kundens egne opgaver', value: txt(t.egneOpgaver), full: true },
   ]);
 
   const tg = survey.billeder.taget;
